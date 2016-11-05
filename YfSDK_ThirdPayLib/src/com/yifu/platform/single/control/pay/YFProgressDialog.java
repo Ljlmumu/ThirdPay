@@ -1,0 +1,45 @@
+package com.yifu.platform.single.control.pay;
+
+import android.app.Dialog;
+import android.content.Context;
+import android.graphics.drawable.ColorDrawable;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.Window;
+
+import com.yifu.platform.single.util.ResourceUtil;
+
+public class YFProgressDialog extends Dialog {
+
+	private Context mContext;
+	
+	public static final int STYLE_SPINNER = 0;
+
+	public static final int STYLE_HORIZONTAL = 1;
+	
+	
+	public YFProgressDialog(Context context) {
+		super(context);
+		this.mContext = context;
+		init();
+	}
+
+	public YFProgressDialog(Context context,int theme){
+		super(context, theme);
+		this.mContext = context;
+		init();
+	}
+	
+	public void init(){
+		LayoutInflater inflater = LayoutInflater.from(mContext);
+		View _dialogView = inflater.inflate(ResourceUtil.getLayoutId(mContext, "yf_custom_progress"), null);
+		requestWindowFeature(Window.FEATURE_NO_TITLE);
+		setContentView(_dialogView);
+		getWindow().setBackgroundDrawable(new ColorDrawable(0));
+		getWindow().setGravity(Gravity.CENTER_VERTICAL);
+		setCancelable(false);
+	}
+	
+	
+}

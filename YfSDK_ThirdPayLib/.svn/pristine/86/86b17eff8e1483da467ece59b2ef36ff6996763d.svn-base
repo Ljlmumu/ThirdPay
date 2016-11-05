@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="40dp"
+    android:layout_alignParentTop="true"
+    android:minWidth="280dp" >
+
+    <ImageView
+        android:id="@+id/yfMainHeadClose"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_centerInParent="true"
+        android:padding="12dp"
+        android:src="@drawable/yf_pay_close_selector"
+        android:visibility="visible" />
+
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="1dp"
+        android:layout_below="@id/yfMainHeadClose"
+        android:layout_marginTop="5dp"
+        android:background="#cccccc"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/yfMainHeadTxt"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:gravity="center"
+        android:text="@string/yf_payment_dialog_title"
+        android:textColor="@color/yf_color_ffffff"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/yf_draw_historyrecord_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_centerVertical="true"
+        android:layout_marginLeft="15dp"
+        android:background="@drawable/yf_draw_historybtn_shape"
+        android:padding="3dp"
+        android:text="@string/yf_draw_lottery_record"
+        android:textColor="@color/yf_color_ffffff"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+</RelativeLayout>

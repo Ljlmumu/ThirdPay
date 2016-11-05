@@ -1,0 +1,96 @@
+package com.yifu.platform.single.control;
+
+import java.util.Map.Entry;
+import java.util.Set;
+
+import android.content.Context;
+import android.content.Entity;
+
+import com.yifu.platform.single.YFErrorCode;
+import com.yifu.platform.single.json.JSONManager;
+import com.yifu.platform.single.net.ConnectManagerHelper;
+import com.yifu.platform.single.net.INetListener;
+import com.yifu.platform.single.net.NetManager;
+import com.yifu.platform.single.net.response.BaseResult;
+import com.yifu.platform.single.net.response.ThirdPayResult;
+import com.yifu.platform.single.util.Constants;
+import com.yifu.platform.single.util.SharePreferenceUtil;
+
+/**
+ * 第三方支付配置的请求
+ * 
+ * @author tf
+ *
+ */
+public class InitThirdPay implements IInitDataFromServer, INetListener {
+	private Context mContext;
+	private SharePreferenceUtil sharedUtil;
+	private static InitThirdPay instance;
+
+	/**
+	 * 渠道配置文件版本号
+	 */
+
+	private InitThirdPay() {
+	}
+
+	public static synchronized InitThirdPay getInstance() {
+		if (null == instance) {
+			instance = new InitThirdPay();
+		}
+		return instance;
+	}
+
+	private int checkId;
+
+	@Override
+	public void onNetResponse(int requestTag, BaseResult responseData, int requestId) {
+		if (Constants.TAGS_THIRDPAY_SUPPORTLIST == requestTag) {
+			ThirdPayResult respon = (ThirdPayResult) responseData;
+			if (YFErrorCode.DC_OK == respon.getErrorCode() && null != respon) {
+
+				sharedUtil.saveInt("alipay_support", respon.getAlipay());
+				sharedUtil.saveInt("quickpay_support", respon.getQuickpay());
+				sharedUtil.saveInt("yeepay_support", respon.getYeepay());
+				sharedUtil.saveInt("gamecard_support", respon.getGamecard());
+				sharedUtil.saveInt("tencentmm_support", respon.getTencentmm());
+				sharedUtil.saveInt("alipayType", respon.getAlipaytype());//用哪个支付宝
+				System.out.println("alipayType=="+respon.getAlipaytype());
+				System.out.println("alipayType=="+respon.getTencentmmtype());
+				sharedUtil.saveInt("tencentmmType", respon.getTencentmmtype());
+				sharedUtil.saveInt(Constants.SP_THIRDPAY_LIST_VERSION, respon.getCheckId());
+
+			}
+
+		}
+	}
+
+	@Override
+	public void onDownLoadStatus(DownLoadStatus status, int requestId) {
+
+	}
+
+	@Override
+	public void onDownLoadProgressCurSize(long curSize, long totalSize, int requestId) {
+
+	}
+
+	@Override
+	public void onNetResponseErr(int requestTag, int requestId, int errorCode, String msg) {
+
+	}
+
+	@Override
+	public void initDataFromServer(Context context) {
+		mContext = context;
+		sharedUtil = SharePreferenceUtil.getInstance(context);
+
+		if (ConnectManagerHelper.isNetConnect()) {
+			checkId = sharedUtil.getInt(Constants.SP_THIRDPAY_LIST_VERSION);
+			String request = JSONManager.getJsonBuilder().buildGetThirdPaySupportListString(checkId);
+			NetManager.getHttpConnect().sendRequest(Constants.URL_THIRDPAY_SUPPORT_LIST,
+					Constants.TAGS_THIRDPAY_SUPPORTLIST, request, this);
+		}
+	}
+
+}

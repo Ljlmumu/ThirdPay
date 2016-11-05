@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.yifu.platform.ad.suspend.YFSuspensionView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="242dp"
+    android:layout_height="100dp"
+    android:background="@drawable/yf_suspend_bg"
+    android:gravity="center" >
+
+    <FrameLayout
+        android:id="@+id/yf_suspension_hlv"
+        android:layout_width="242dp"
+        android:layout_height="100dp" >
+
+        <android.support.v4.view.ViewPager
+            android:id="@+id/yf_suspension_vp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" >
+        </android.support.v4.view.ViewPager>
+
+        <LinearLayout
+            android:id="@+id/yf_suspension_circle_layout"
+            android:layout_width="match_parent"
+            android:layout_height="40dip"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="8dp"
+            android:gravity="bottom|center_horizontal"
+            android:orientation="horizontal" >
+        </LinearLayout>
+    </FrameLayout>
+
+</com.yifu.platform.ad.suspend.YFSuspensionView>

@@ -1,0 +1,239 @@
+package com.yifu.platform.single.internal;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.pm.ActivityInfo;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.os.Build;
+import android.util.Log;
+import android.widget.Toast;
+
+import com.yifu.platform.alipay.YFPayAlipayWorker;
+import com.yifu.platform.single.PayType;
+import com.yifu.platform.single.callback.IYFSDKCallBack;
+import com.yifu.platform.single.control.IPayFactory;
+import com.yifu.platform.single.control.InitThirdPay;
+import com.yifu.platform.single.control.PayChannel;
+import com.yifu.platform.single.control.pay.YFPayController;
+import com.yifu.platform.single.item.GamePropsInfo;
+import com.yifu.platform.single.json.JSONBuilder;
+import com.yifu.platform.single.location.MyLocationManager;
+import com.yifu.platform.single.location.MyLocationManager.LocationListener;
+import com.yifu.platform.single.order.Order;
+import com.yifu.platform.single.setting.YFSingleSDKSettings;
+import com.yifu.platform.single.util.Constants;
+import com.yifu.platform.single.util.SharePreferenceUtil;
+import com.yifu.platform.wxapi.shenzhoufu.YFPayweichat;
+import com.yifu.platform.wxapi.xingluo.YFPayWeiXinWorker;
+
+public class YFPlatformInternal {
+
+	private SharePreferenceUtil sharedUtil;
+	private Context mContext;
+	private Order curOrder;
+
+	public Context getmContext() {
+		return mContext;
+	}
+
+	public void setmContext(Context mContext) {
+		this.mContext = mContext;
+	}
+
+	public Order getCurOrder() {
+		return curOrder;
+	}
+
+	public void setCurOrder(Order curOrder) {
+		this.curOrder = curOrder;
+	}
+
+	public static YFPlatformInternal getInstance() {
+		return Inner.yfPlatformInternal;
+	}
+
+	private static class Inner {
+		static YFPlatformInternal yfPlatformInternal = new YFPlatformInternal();
+	}
+
+	public void initSDK(Activity context) {
+		sharedUtil = SharePreferenceUtil.getInstance(context);
+		mContext = context.getApplicationContext();
+		firstinit(context);
+		// 初始化
+
+		initThirdPay();
+
+	}
+
+	public void initThirdPay() {
+
+		MyLocationManager.getInstance(mContext).location(
+				new LocationListener() {
+					@Override
+					public void onFinish() {
+						InitThirdPay.getInstance().initDataFromServer(mContext);
+					}
+				});
+	}
+
+	private void firstinit(Activity activity) {
+
+		JSONBuilder.initGameVersionValue(activity);
+
+		String appId = null;
+		String appKey = null;
+		String appSecret = null;
+		String appChannel = null;
+		String payChannel = null;
+		String businessChannel = null;
+
+		PackageManager packageManager = activity.getPackageManager();
+		ApplicationInfo ai;
+		try {
+			ai = packageManager.getApplicationInfo(activity.getPackageName(),
+					PackageManager.GET_META_DATA);
+			appId = ai.metaData.get(Constants.YFSDK_APPID).toString();
+			appKey = ai.metaData.get(Constants.YFSDK_APPKEY).toString();
+			appSecret = ai.metaData.get(Constants.YFSDK_APPSECRET).toString();
+			appChannel = ai.metaData.get(Constants.YFSDK_CHANNEL).toString();
+			businessChannel = ai.metaData.get(Constants.YFSDK_BUSINESS_CHANNEL)
+					.toString();
+		} catch (NameNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		Context paramContext = activity.getApplicationContext();
+		initBasicData(paramContext, appId, appKey, appSecret, appChannel,
+				payChannel, businessChannel);
+
+	}
+
+	private void initBasicData(Context paramContext, String appId,
+			String appKey, String appSecret, String appChannel,
+			String payChannel, String businessChannel) {
+		YFSingleSDKSettings.SDK_APPID = appId;
+		YFSingleSDKSettings.SDK_APPKEY = appKey;
+		YFSingleSDKSettings.SDK_APPSECRET = appSecret;
+		YFSingleSDKSettings.SDK_CHANNELID = appChannel;
+		YFSingleSDKSettings.SDK_PAY_CHANNEL = payChannel;
+		YFSingleSDKSettings.SDK_BUSINESS_CHANNEL = businessChannel;
+
+		YFSingleSDKSettings.PHONE_UA = Build.MODEL;
+
+		JSONBuilder.initGameVersionValue(paramContext);
+
+	}
+
+	public void invokePay(Context context, GamePropsInfo yfPlatformGameProps,
+			PayType payType, IYFSDKCallBack callBack) {
+		initOrderInfo(yfPlatformGameProps, payType);
+		if (curOrder != null) {
+			Map<String, Object> map = new HashMap<String, Object>();
+			map.put("ORDER", curOrder);
+			map.put("CONTEXT", context);
+
+			IPayFactory factory = payType.getFactory();
+			PayChannel channel = null;
+
+			if (payType == PayType.TENCENTMM) {
+				int wechat = sharedUtil.getInt("tencentmm_support", 1);
+				int sptencentmmType = sharedUtil.getInt("tencentmmType", 4);
+				if (1 == wechat) {
+
+
+				
+					// 微信
+					switch (sptencentmmType) {
+					case 1:// 星罗
+						curOrder.setChannel(ThirdPayChannel.XL_TENCENTMM);
+						channel = factory.getPayChannel();
+						
+						break;
+					case 2:// 神州付
+						curOrder.setChannel(ThirdPayChannel.SZF_TENCENTMM);
+						channel = factory.getSparePayChannel();
+
+						break;
+
+					case 3:// 汇付宝
+						curOrder.setChannel(ThirdPayChannel.HFB_TENCENTMM);
+						channel = factory.getThirdPayChannel();
+						break;
+					case 4:// 威富通
+						channel = factory.getFourPayChannel();
+						curOrder.setChannel(ThirdPayChannel.WFT_TENCENTMM);
+						break;
+					case 5://易宝支付
+						curOrder.setChannel(ThirdPayChannel.YIBAO_TENCENTMM);
+						channel = factory.getFivePayChannel();
+						break;
+					default:
+						channel = factory.getPayChannel();
+						break;
+					}
+					channel.doPay(context, callBack, curOrder);
+				} else {
+					Toast.makeText(mContext, "暂不支持微信，请使用其他方式支付",
+							Toast.LENGTH_SHORT).show();
+				}
+			}
+			if (payType == PayType.ALIPAY) {
+				int alipay = sharedUtil.getInt("alipay_support", 1);
+				int spalipayType = sharedUtil.getInt("alipayType", 1);
+				if (1 == alipay) {
+					// 支付宝
+					switch (spalipayType) {
+					case 1:// 官方
+						curOrder.setChannel(ThirdPayChannel.ALIPAY);
+						channel = factory.getPayChannel();
+						break;
+					case 2:// 神州付
+						curOrder.setChannel(ThirdPayChannel.SZF_ALIPAY);
+						channel = factory.getSparePayChannel();
+						break;
+					case 3:// 汇付宝
+						curOrder.setChannel(ThirdPayChannel.HFB_ALIPAY);
+						channel = factory.getThirdPayChannel();
+						Log.e("YFPlatforminternal", "汇付宝的支付宝未开通");
+						break;
+					case 4://易宝支付
+						curOrder.setChannel(ThirdPayChannel.YIBAO_ALIPAY);
+						channel = factory.getFourPayChannel();
+						break;
+					default:
+						channel = factory.getPayChannel();
+						break;
+					}
+					channel.doPay(context, callBack, curOrder);
+				} else {
+					Toast.makeText(mContext, "暂不支持支付宝，请使用其他方式支付",
+							Toast.LENGTH_SHORT).show();
+				}
+			}
+
+		}
+
+	}
+
+	public void initOrderInfo(GamePropsInfo item, PayType payType) {
+		curOrder = new Order(mContext);
+		curOrder.setPrice(item.getPrice());
+		curOrder.setDesc(item.getTitle());
+		curOrder.setItem_id(item.getPropsId());
+		curOrder.item_name = item.getTitle();
+		curOrder.userdata = item.getUserdata();
+		curOrder.setStatus(Constants.ORDER_STATUS_UNKNOWN);
+		curOrder.create_time = System.currentTimeMillis();
+		curOrder.mchNo = YFSingleSDKSettings.SDK_BUSINESS_CHANNEL;
+		curOrder.merchant_id = YFSingleSDKSettings.SDK_BUSINESS_CHANNEL;
+		curOrder.setChannel(payType.getChannel());
+	}
+
+}

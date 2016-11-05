@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/yf_pointer_game_bglayout"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/yf_pointer_game_recommend_bg_default" >
+
+    <RelativeLayout
+        android:layout_width="fill_parent"
+        android:layout_height="34dp"
+        android:layout_alignParentBottom="true" >
+
+        <Button
+            android:id="@+id/yf_btn_download_game"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            android:layout_marginRight="12dp"
+            android:background="@drawable/yf_btn_download_icon_selector"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/yf_game_title_txt"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_toLeftOf="@id/yf_btn_download_game"
+            android:paddingLeft="10dp"
+            android:singleLine="true"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:visibility="gone" />
+    </RelativeLayout>
+
+    <TextView
+        android:id="@+id/yf_game_content_txt"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:singleLine="true"
+        android:textColor="@android:color/black"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+</RelativeLayout>

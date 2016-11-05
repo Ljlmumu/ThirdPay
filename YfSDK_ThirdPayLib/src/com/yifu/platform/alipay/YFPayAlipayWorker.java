@@ -1,0 +1,435 @@
+package com.yifu.platform.alipay;
+
+import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.util.Map;
+
+import android.app.Activity;
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
+import android.widget.Toast;
+
+import com.alipay.sdk.app.PayTask;
+import com.yifu.platform.single.YFErrorCode;
+import com.yifu.platform.single.YFPlatform;
+import com.yifu.platform.single.callback.IYFSDKCallBack;
+import com.yifu.platform.single.codec.AES;
+import com.yifu.platform.single.control.PayChannel;
+import com.yifu.platform.single.control.pay.YFPayController;
+import com.yifu.platform.single.internal.YFPlatformInternal;
+import com.yifu.platform.single.item.YFOrderInfoData;
+import com.yifu.platform.single.item.YFOrderStatus;
+import com.yifu.platform.single.json.JSONManager;
+import com.yifu.platform.single.net.ConnectManagerHelper;
+import com.yifu.platform.single.net.INetListener;
+import com.yifu.platform.single.net.NetManager;
+import com.yifu.platform.single.net.response.BaseResult;
+import com.yifu.platform.single.net.response.UploadOrderInfoResult;
+import com.yifu.platform.single.order.Order;
+import com.yifu.platform.single.util.Constants;
+import com.yifu.platform.single.util.PayOrderChannel;
+import com.yifu.platform.single.util.ResourceUtil;
+import com.yifu.platform.single.util.SMSOrderIDGenerator;
+import com.yifu.platform.single.util.SharePreferenceUtil;
+
+public class YFPayAlipayWorker extends PayChannel implements INetListener {
+
+	// private YFPayOrderValue orderValue;
+	private Order order;
+	private int viewId;
+	private ProgressDialog mProgress = null;
+	private AES aes;
+	private Activity mContext;
+	private IYFSDKCallBack mSDKCallBack;
+	private static final int YF_RQF_PAY = 1;
+
+	public YFPayAlipayWorker() {
+
+	}
+
+	@Override
+	public void doPay(Context context,IYFSDKCallBack mSDKCallBack,Order order) {
+
+		this.mContext = (Activity) context;
+		this.mSDKCallBack = mSDKCallBack;
+		// 获取订单
+		this.order = order;
+
+		
+		if (null == order) {
+			throw new NullPointerException("order data can not be null.");
+		}
+
+		SharePreferenceUtil.getInstance(mContext).saveString(
+				Constants.SHARE_LAST_THIRDPAY, Constants.CHANNEL_ALIPAY);
+
+		StringBuilder orderid = new StringBuilder("");
+		orderid.append("YF_").append(SMSOrderIDGenerator.getOrderID(8));
+
+		order.setOrder_id(orderid.toString());
+		if (ConnectManagerHelper.isNetConnect()) {
+			String content = order.mchNo;
+
+			String request = JSONManager.getJsonBuilder()
+					.buildSmsOrderInfoUploadString(order.channel,
+							orderid.toString(), order.price, order.item_id,
+							content, order.desc, order.userdata);
+			
+		//System.out.println(request);
+			// 上传订单
+			NetManager.getHttpConnect().sendRequest(
+					Constants.URL_UPLOAD_ORDER_INFO,
+					Constants.TAGS_UPLOAD_ORDER_INFO, request, this);
+		} else {
+			Toast.makeText(mContext, "网络连接错误，请检查网络", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		/** 测试数据 **/
+	}
+
+	public void onNetResponse(int requestTag, BaseResult responseData,
+			int requestId) {
+		if (Constants.TAGS_UPLOAD_ORDER_INFO == requestTag) {
+			UploadOrderInfoResult result = (UploadOrderInfoResult) responseData;
+			if (null != result) {
+				if (Constants.DC_OK == result.getErrorCode()) {
+					if (result.getOrder_status() == 4) {// 订单号重复
+						StringBuilder orderid = new StringBuilder("");
+							orderid.append("YF_").append(
+									SMSOrderIDGenerator.getOrderID(8));
+
+						order.setOrder_id(orderid.toString());
+
+						String content = order.mchNo;
+						// tag3,上传订单信息
+						String request = JSONManager.getJsonBuilder()
+								.buildSmsOrderInfoUploadString(order.channel,
+										orderid.toString(), order.price,
+										order.item_id, content, order.desc,
+										order.userdata);
+
+						NetManager.getHttpConnect()
+								.sendRequest(Constants.URL_UPLOAD_ORDER_INFO,
+										Constants.TAGS_UPLOAD_ORDER_INFO,
+										request, this);
+						return;
+					}
+					if (result.getOrder_status() == 3) {// 交易成功
+						return;
+					}
+					// Save the info of order.
+					startAlipayService(mContext);
+				} else {
+					Toast.makeText(mContext, "订单创建失败", 1000).show();
+				}
+			}
+		}
+	}
+
+
+	/**
+	 * 开始支付
+	 * 
+	 * @param ac
+	 */
+	private void startAlipayService(Context ac) {
+		// 检测配置信息
+		if (!checkInfo()) {
+			return;
+		}
+		// 根据订单信息开始进行支付
+		try {
+			// prepare the order info.
+			// 准备订单信息
+			String orderInfo = getOrderInfo();
+			// 这里根据签名方式对订单信息进行签名
+			String signType = getSignType();
+			String strsign = sign(signType, orderInfo);
+			// Log.v("sign:", strsign);
+			// 对签名进行编码
+			try {
+				strsign = URLEncoder.encode(strsign, "UTF-8");
+			} catch (UnsupportedEncodingException e) {
+			}
+			// 组装好参数
+			// final String info = orderInfo + "&sign=" + "\"" + strsign + "\""
+			// + "&" + getSignType();
+			final String info = orderInfo + "&sign=\"" + strsign + "\"&"
+					+ getSignType();
+			// Log.v("orderInfo:", info);
+			// start the pay.
+			// 调用pay方法进行支付
+			new Thread() {
+				public void run() {
+
+					PayTask alipay = new PayTask(mContext);
+					String result = alipay.pay(info, true);
+
+					Message msg = new Message();
+					msg.what = AlixId.RQF_PAY;
+					msg.obj = result;
+					mAliPayHandler.sendMessage(msg);
+				}
+			}.start();
+
+		} catch (Exception ex) {
+			Toast.makeText(mContext,
+					ResourceUtil.getStringId(mContext, "remote_call_failed"),
+					Toast.LENGTH_SHORT).show();
+		}
+	}
+
+	private Handler mAliPayHandler = new Handler() {
+		public void handleMessage(Message msg) {
+			try {
+				String strRet = (String) msg.obj;
+				switch (msg.what) {
+				case AlixId.RQF_PAY: {
+					String status = Constants.ORDER_STATUS_DEALING;
+					YFOrderInfoData orderInfo = new YFOrderInfoData();
+					orderInfo
+							.setyfOrderPayChannel(PayOrderChannel.CHANNEL_ALIPAY);
+					orderInfo.setyfOrderPrice(order.price);
+					orderInfo.setyfOrderProductId(order.item_id);
+					orderInfo.setyfOrderId(order.order_id);
+					// 处理交易结果
+					try {
+						// 先验签通知
+						ResultChecker resultChecker = new ResultChecker(strRet);
+						resultChecker.parseResult();
+						boolean retVal = resultChecker.retVal;
+						String tradeStatus = resultChecker.resultStatus;
+						//Log.e("lijilei", "tradeStatus=" + tradeStatus);
+						// 验签失败
+						if (retVal == false) {
+							// h5界面不验签
+							if ("9000".equals(tradeStatus)) {
+								status = Constants.ORDER_STATUS_SUCCESS;
+								SharePreferenceUtil
+										.getInstance(mContext)
+										.saveString(
+												Constants.SHARE_LAST_THIRDPAY_SUCCESS,
+												Constants.CHANNEL_ALIPAY);
+								orderInfo.setyfOrderStatus(YFOrderStatus.YF_ORDER_STATUS_SUCCESS);
+								// 调用CP的支付成功接口实现
+								YFPayController.getInstance()
+										.onPlatformRechargeResult(
+												YFErrorCode.BDG_RECHARGE_SUCCESS,mSDKCallBack,
+												orderInfo);
+							
+							} else {
+								status = Constants.ORDER_STATUS_FAIL;
+								orderInfo
+										.setyfOrderStatus(YFOrderStatus.YF_ORDER_STATUS_FAIL);
+								// 默认走支付宝时退出界面
+								defaultAlipayExit(mContext);
+								YFPayController.getInstance()
+										.onPlatformRechargeResult(
+												YFErrorCode.BDG_RECHARGE_FAIL,mSDKCallBack,
+												orderInfo);
+
+							}
+						} else {
+							// 验签成功。验签成功后再判断交易状态码
+							// 判断交易状态码，只有9000表示交易成功
+							if ("9000".equals(tradeStatus)) {
+								status = Constants.ORDER_STATUS_SUCCESS;
+								SharePreferenceUtil
+										.getInstance(mContext)
+										.saveString(
+												Constants.SHARE_LAST_THIRDPAY_SUCCESS,
+												Constants.CHANNEL_ALIPAY);
+								orderInfo
+										.setyfOrderStatus(YFOrderStatus.YF_ORDER_STATUS_SUCCESS);
+								YFPayController.getInstance()
+										.onPlatformRechargeResult(
+												YFErrorCode.BDG_RECHARGE_SUCCESS,mSDKCallBack,
+												orderInfo);
+							
+							} else if ("6001".equals(tradeStatus)) {
+								status = Constants.ORDER_STATUS_CANCEL;
+								// 默认走支付宝时退出界面
+								defaultAlipayExit(mContext);
+								YFPayController.getInstance()
+										.onPlatformRechargeResult(
+												YFErrorCode.BDG_RECHARGE_CANCEL,mSDKCallBack,
+												orderInfo);
+
+							} else {
+								status = Constants.ORDER_STATUS_FAIL;
+								orderInfo
+										.setyfOrderStatus(YFOrderStatus.YF_ORDER_STATUS_FAIL);
+								// 默认走支付宝时退出界面
+								defaultAlipayExit(mContext);
+								YFPayController.getInstance()
+										.onPlatformRechargeResult(
+												YFErrorCode.BDG_RECHARGE_FAIL,mSDKCallBack,
+												orderInfo);
+
+							}
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+						// 更改订单状态，交易失败
+						status = Constants.ORDER_STATUS_FAIL;
+						orderInfo.setyfOrderStatus(YFOrderStatus.YF_ORDER_STATUS_FAIL);
+						// 默认走支付宝时退出界面
+						defaultAlipayExit(mContext);
+						YFPayController.getInstance()
+								.onPlatformRechargeResult(
+										YFErrorCode.BDG_RECHARGE_FAIL,mSDKCallBack,
+										orderInfo);
+
+					} finally {
+						// 更改订单状态
+					}
+				}
+					break;
+				}
+
+				super.handleMessage(msg);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+
+	};
+
+	/**
+	 * 退出支付宝
+	 * 
+	 * @param context
+	 */
+	private void defaultAlipayExit(Context context) {
+		String lastSuccess = SharePreferenceUtil.getInstance(context)
+				.getString(Constants.SHARE_LAST_THIRDPAY_SUCCESS);
+		// 上一次支付成功是支付宝
+		if (lastSuccess.equals(Constants.CHANNEL_ALIPAY)) {
+			SharePreferenceUtil.getInstance(context).saveString(
+					Constants.SHARE_LAST_THIRDPAY_SUCCESS, "");
+		}
+	}
+
+	/**
+	 * check some info.the partner,seller etc. 检测配置信息
+	 * partnerid商户id，seller收款帐号不能为空
+	 * 
+	 * @return
+	 */
+	private boolean checkInfo() {
+		String partner = PartnerConfig.PARTNER;
+		String seller = PartnerConfig.SELLER;
+		if (partner == null || partner.length() <= 0 || seller == null
+				|| seller.length() <= 0)
+			return false;
+
+		return true;
+	}
+
+	/**
+	 * create the order info. 创建订单信息
+	 * 
+	 */
+	private String getOrderInfo() {
+
+		// 签约合作者身份ID
+		String orderInfo = "partner=" + "\"" + PartnerConfig.PARTNER + "\"";
+
+		// 签约卖家支付宝账号
+		orderInfo += "&seller_id=" + "\"" + PartnerConfig.SELLER + "\"";
+
+		// 商户网站唯一订单号
+		orderInfo += "&out_trade_no=" + "\"" + order.getOrder_id() + "\"";
+
+		// 商品名称
+		orderInfo += "&subject=" + "\"" + order.getDesc() + "\"";
+
+		// 商品详情
+		orderInfo += "&body=" + "\"" + order.getDesc() + "\"";
+
+		// 商品金额
+
+		BigDecimal totalFeeBig = new BigDecimal(order.price);
+		String totalFee = totalFeeBig.divide(new BigDecimal(100)).toString();
+		orderInfo += "&total_fee=" + "\"" + totalFee + "\"";
+
+		// 服务器异步通知页面路径
+		orderInfo += "&notify_url=" + "\"" + PartnerConfig.SERVER_NOTIFY_URL
+				+ "\"";
+
+		// 服务接口名称， 固定值
+		orderInfo += "&service=\"mobile.securitypay.pay\"";
+
+		// 支付类型， 固定值
+		orderInfo += "&payment_type=\"1\"";
+
+		// 参数编码， 固定值
+		orderInfo += "&_input_charset=\"utf-8\"";
+
+		// 设置未付款交易的超时时间
+		// 默认30分钟，一旦超时，该笔交易就会自动被关闭。
+		// 取值范围：1m～15d。
+		// m-分钟，h-小时，d-天，1c-当天（无论交易何时创建，都在0点关闭）。
+		// 该参数数值不接受小数点，如1.5h，可转换为90m。
+		orderInfo += "&it_b_pay=\"30m\"";
+
+		// extern_token为经过快登授权获取到的alipay_open_id,带上此参数用户将使用授权的账户进行支付
+		// orderInfo += "&extern_token=" + "\"" + extern_token + "\"";
+
+		// 支付宝处理完请求后，当前页面跳转到商户指定页面的路径，可空
+		// orderInfo += "&return_url=\"m.alipay.com\"";
+
+		// 调用银行卡支付，需配置此参数，参与签名， 固定值 （需要签约《无线银行卡快捷支付》才能使用）
+		// orderInfo += "&paymethod=\"expressGateway\"";
+
+		return orderInfo;
+	}
+
+	/**
+	 * sign the order info. 对订单信息进行签名
+	 * 
+	 * @param signType
+	 *            签名方式
+	 * @param content
+	 *            待签名订单信息
+	 * @return
+	 */
+	String sign(String signType, String content) {
+		String sigs = Rsa.sign(content, PartnerConfig.RSA_PRIVATE);
+		// Log.e("lijilei",sigs);
+		return sigs;
+	}
+
+	/**
+	 * get the sign type we use. 获取签名方式
+	 * 
+	 * @return
+	 */
+	String getSignType() {
+		return "sign_type=\"RSA\"";
+	}
+
+	@Override
+	public void onDownLoadStatus(DownLoadStatus status, int requestId) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void onDownLoadProgressCurSize(long curSize, long totalSize,
+			int requestId) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void onNetResponseErr(int requestTag, int requestId, int errorCode,
+			String msg) {
+		// TODO Auto-generated method stub
+
+	}
+}

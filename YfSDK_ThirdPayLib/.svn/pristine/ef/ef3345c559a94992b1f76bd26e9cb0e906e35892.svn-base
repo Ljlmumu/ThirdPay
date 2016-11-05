@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/yf_new_bg_dialog"
+    android:orientation="vertical" >
+
+    <include layout="@layout/yf_dialog_header" />
+
+    <ListView
+        android:id="@+id/yf_good_game_lv"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="8dp"
+        android:cacheColorHint="#00000000"
+        android:divider="@null"
+        android:dividerHeight="5dp"
+        android:fadingEdge="none"
+        android:listSelector="@drawable/yf_suspension_item_bg_selector"
+        android:scrollbars="none" >
+    </ListView>
+
+</LinearLayout>

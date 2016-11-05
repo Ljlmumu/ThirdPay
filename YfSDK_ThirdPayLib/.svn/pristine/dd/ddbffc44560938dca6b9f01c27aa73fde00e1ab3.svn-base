@@ -1,0 +1,283 @@
+package com.yifu.platform.wxapi;
+
+import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.net.http.SslError;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Message;
+import android.util.Log;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
+import android.view.Window;
+import android.webkit.HttpAuthHandler;
+import android.webkit.SslErrorHandler;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebSettings.LayoutAlgorithm;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+
+import com.yifu.platform.single.util.ResourceUtil;
+
+/**
+ * H5activity，用于调起支付宝、微信进行支付
+ * 
+ * @author lijilei
+ *
+ */
+public class YFH5PayActivity extends Activity implements OnClickListener {
+
+	private WebView webView;
+	private Activity context;
+	private String url;
+	private String orderid;
+	private ProgressBar progressBar;
+	private ImageButton back;
+	private TextView h5_tv = null;
+
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+		setContentView(ResourceUtil.getLayoutId(this, "h5_wap_thirdpay"));
+		initData();
+	//	intView();
+		initWebView();
+	}
+
+//	private void intView() {
+//		 FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+//		            ViewGroup.LayoutParams.MATCH_PARENT,
+//		            ViewGroup.LayoutParams.MATCH_PARENT);
+//		 
+//		FrameLayout frameLayout =new FrameLayout(this);
+//		frameLayout.setLayoutParams(lp);
+//	}
+
+	private void initData() {
+		context = this;
+		url = getIntent().getStringExtra("url");
+		orderid = getIntent().getStringExtra("orderid");
+		// price = getIntent().getStringExtra("price");
+		// itemid = getIntent().getStringExtra("itemid");
+		// pageReturnUrl = getIntent().getStringExtra("pageReturnUrl");
+
+	}
+
+	@SuppressLint("NewApi")
+	private void initWebView() {
+		h5_tv = (TextView) findViewById(ResourceUtil.getId(this, "fail_load"));
+		progressBar = (ProgressBar) findViewById(ResourceUtil.getId(this,
+				"myProgressBar"));
+		back = (ImageButton) findViewById(ResourceUtil.getId(this, "h5_back"));
+		back.setOnClickListener(this);
+		webView = new WebView(context);
+		LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+				LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT);
+		webView.setLayoutParams(params);
+		LinearLayout mll = (LinearLayout) findViewById(ResourceUtil.getId(this,
+				"ll_mainView"));
+		mll.addView(webView);
+
+		if (Build.VERSION.SDK_INT >= 19) {
+			webView.getSettings().setCacheMode(
+					WebSettings.LOAD_CACHE_ELSE_NETWORK);
+		}
+		webView.setWebChromeClient(new MyWebChromeClient());
+		webView.setWebViewClient(new GameWebViewClient());
+		WebSettings s = webView.getSettings();
+		s.setJavaScriptEnabled(true);
+		// 设置可以支持缩放
+		// s.setSupportZoom(true);
+		// 设置出现缩放工具
+		// s.setBuiltInZoomControls(true);
+		// 扩大比例的缩放
+		// s.setUseWideViewPort(true);
+		// 自适应屏幕
+		s.setNeedInitialFocus(true);
+		s.setJavaScriptCanOpenWindowsAutomatically(true);
+		s.setLayoutAlgorithm(LayoutAlgorithm.SINGLE_COLUMN);
+		s.setLoadWithOverviewMode(true);
+		// 设置可以访问文件
+		s.setAllowFileAccess(true);
+		// 设置支持缩放
+		s.setBuiltInZoomControls(true);
+		s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+		// webSettings.setDatabaseEnabled(true);
+
+		// 使用localStorage则必须打开
+		s.setDomStorageEnabled(true);
+		// 多窗口
+		// s.setSupportMultipleWindows(true);
+		// s.setJavaScriptCanOpenWindowsAutomatically(true);
+		webView.loadUrl(url);
+
+	}
+
+	class MyWebChromeClient extends WebChromeClient {
+		@Override
+		public void onProgressChanged(WebView view, int newProgress) {
+			if (newProgress == 100) {
+				progressBar.setVisibility(View.GONE);
+			} else {
+				if (View.GONE == progressBar.getVisibility()) {
+					progressBar.setVisibility(View.VISIBLE);
+				}
+				progressBar.setProgress(newProgress);
+			}
+			h5_tv.setText("正在跳转...");
+			h5_tv.setVisibility(View.VISIBLE);
+			super.onProgressChanged(view, newProgress);
+		}
+
+		public boolean onCreateWindow(WebView view, boolean isDialog,
+				boolean isUserGesture, Message resultMsg) {
+			// WebView.WebViewTransport transport =
+			// (WebView.WebViewTransport) resultMsg.obj;
+			// transport.setWebView(webView);
+			// resultMsg.sendToTarget();
+			return true;
+		}
+	}
+
+	class GameWebViewClient extends WebViewClient {
+		@Override
+		public boolean shouldOverrideUrlLoading(WebView view,
+				String url_Turntable) {
+
+			if (parseScheme(url_Turntable)) {// 如果是支付宝的的协议
+				try {
+					Uri uri = Uri.parse(url_Turntable);
+					Intent intent;
+					intent = Intent.parseUri(url_Turntable,
+							Intent.URI_INTENT_SCHEME);
+					intent.addCategory("android.intent.category.BROWSABLE");
+					intent.setComponent(null);
+					// intent.setSelector(null);
+					startActivity(intent);
+					return true;
+				} catch (Exception e) {
+					Log.e("h5activity", "加载错误");
+				}
+
+			} else {
+
+				if (url_Turntable.startsWith("http:")
+						|| url_Turntable.startsWith("https:")) {
+
+					view.loadUrl(url_Turntable);
+				} else {
+					Intent intent = new Intent(Intent.ACTION_VIEW,
+							Uri.parse(url_Turntable));
+					startActivity(intent);
+				}
+				return true;
+			}
+
+			return true;
+
+		}
+
+		@Override
+		public void onReceivedSslError(WebView view, SslErrorHandler handler,
+				SslError error) {
+			handler.proceed();
+		}
+
+		@Override
+		public void onPageStarted(WebView view, String url, Bitmap favicon) {
+			//System.out.println("开始加载==" + url);
+			h5_tv.setText("正在跳转...");
+		}
+
+		@Override
+		public void onPageFinished(WebView view, String finishUrl) {
+
+			h5_tv.setText("您是否完成支付？完成请返回...");
+			h5_tv.setVisibility(View.GONE);
+		}
+
+		@SuppressWarnings("deprecation")
+		@Override
+		public void onReceivedError(WebView view, int errorCode,
+				String description, String failingUrl) {
+			Log.e("H5Activity", "加载失败。");
+			h5_tv.setText("加载失败...");
+			super.onReceivedError(view, errorCode, description, failingUrl);
+			AlertDialog alertDialog = new AlertDialog.Builder(context).create();
+			alertDialog.setTitle("ERROR");
+			alertDialog.setMessage(description);
+			alertDialog.setButton("OK", new DialogInterface.OnClickListener() {
+				public void onClick(DialogInterface dialog, int which) {
+
+				}
+			});
+			alertDialog.show();
+		}
+
+		@Override
+		public void onReceivedHttpAuthRequest(WebView view,
+				HttpAuthHandler handler, String host, String realm) {
+			super.onReceivedHttpAuthRequest(view, handler, host, realm);
+			System.out.println("接收到网页请求");
+		}
+	}
+
+	/*
+	 * https://ds.alipay.com 解析跳转支付宝的url协议
+	 */
+	public boolean parseScheme(String url) {
+
+		if (url.contains("platformapi/startapp")) {
+
+			return true;
+		} else {
+
+			return false;
+		}
+	}
+
+	@Override
+	public boolean onKeyDown(int keyCode, KeyEvent event) {
+		// if ((keyCode == KeyEvent.KEYCODE_BACK) && webView.canGoBack()) {
+		// webView.goBack();
+		// return true;
+		// }
+
+		return super.onKeyDown(keyCode, event);
+	}
+
+	@Override
+	protected void onDestroy() {
+		webView.removeAllViews();
+		webView.destroy();
+		// 发送广播，通知要去查询订单了
+		Intent intent = new Intent(WeChatConstans.ACTION_THIRDPAY_RECEIVER);
+		intent.putExtra(WeChatConstans.INTENT_ORDERID, orderid);
+		sendBroadcast(intent);
+		super.onDestroy();
+	}
+
+	@Override
+	public void onClick(View v) {
+		if (v.getId() == ResourceUtil.getId(this, "h5_back")) {
+			this.finish();
+		}
+
+	}
+}

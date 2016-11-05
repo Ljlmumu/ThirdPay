@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/yfMainViewLayout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/yf_new_bg_dialog"
+    android:orientation="vertical" >
+
+    <include
+        layout="@layout/yf_dialog_header" />
+
+    <RelativeLayout
+        android:id="@+id/hintContainer"
+        android:layout_width="fill_parent"
+        android:layout_height="0px"
+        android:layout_marginLeft="15dp"
+        android:layout_marginRight="15dp"
+        android:layout_weight="3" >
+
+        <ViewStub
+            android:id="@+id/yfPaySMSTip"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout="@layout/yf_payment_sms_tip" />
+
+        <ViewStub
+            android:id="@+id/yfPayThirdPart"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout="@layout/yf_payment_third_part" />
+
+        <LinearLayout
+            android:id="@+id/yf_pay_dialog_pane"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentTop="true"
+            android:layout_marginTop="5dp"
+            android:orientation="vertical"
+            android:visibility="gone" >
+
+            <TextView
+                android:id="@+id/yf_dialog_tv_main"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="10dp"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:text="@string/dialog_confirmexit"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:textColor="@color/yf_color_000000" />
+
+            <LinearLayout
+                android:id="@+id/btnContainer"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="10dp"
+                android:orientation="horizontal"
+                android:visibility="visible" >
+
+                <Button
+                    android:id="@+id/yf_dialog_btn1"
+                    android:layout_width="fill_parent"
+                    android:layout_height="45dp"
+                    android:layout_alignParentLeft="true"
+                    android:layout_alignParentTop="true"
+                    android:layout_weight="1"
+                    android:background="@drawable/yf_btn_confirm_quit_selector"
+                    android:gravity="center"
+                    android:maxEms="5"
+                    android:text="@string/yf_btn_string_return"
+                    android:textColor="@color/yf_color_333333"
+                    android:textColorHint="@color/yf_chess_rankdate_text_color"
+                    android:textSize="18sp"
+                    android:visibility="visible" />
+
+                <Button
+                    android:id="@+id/yf_dialog_btn2"
+                    android:layout_width="fill_parent"
+                    android:layout_height="45dp"
+                    android:layout_alignParentLeft="true"
+                    android:layout_alignParentTop="true"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="@string/yf_dialog_string_close"
+                    android:textColor="@color/yf_color_ffffff"
+                    android:background="@drawable/yf_btn_pointer_game_selector"
+                    android:textSize="18sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </RelativeLayout>
+
+    <include
+        layout="@layout/yf_dialog_footer"
+        android:visibility="visible" />
+
+</LinearLayout>
